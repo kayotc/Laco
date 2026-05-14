@@ -4,7 +4,6 @@ import ComoFunciona from "@/components/ComoFunciona";
 import Voluntarios from "@/components/Voluntarios";
 import CadastroVoluntario from "@/components/CadastroVoluntario";
 import CadastroLar from "@/components/CadastroLar";
-import ODS from "@/components/ODS";
 import Footer from "@/components/Footer";
 
 export default function Home() {
@@ -16,7 +15,6 @@ export default function Home() {
       <Voluntarios />
       <CadastroVoluntario />
       <CadastroLar />
-      <ODS />
       <Footer />
     </>
   );

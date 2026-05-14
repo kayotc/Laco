@@ -242,7 +242,14 @@ export default function CadastroPage() {
                 </button>
               </form>
 
-              <p style={{ textAlign: 'center', marginTop: '1.25rem', fontSize: '0.8rem', color: 'var(--ink-muted)' }}>
+              <p style={{ textAlign: 'center', marginTop: '1.75rem', fontSize: '0.875rem', color: 'var(--ink-muted)' }}>
+                Já tem conta?{' '}
+                <Link href="/login" style={{ color: 'var(--coral)', fontWeight: 500, textDecoration: 'none' }}>
+                  Entrar →
+                </Link>
+              </p>
+              
+              <p style={{ textAlign: 'center', marginTop: '.25rem', fontSize: '0.8rem', color: 'var(--ink-muted)' }}>
                 Ao criar conta você concorda com nossos{' '}
                 <span style={{ color: 'var(--coral)' }}>Termos de Uso</span>.
               </p>
