@@ -28,10 +28,6 @@ export function makeOpportunityRoutes(controller) {
   router.delete('/:id', authenticate, authorize('lar'), (req, res, next) =>
     controller.delete(req, res).catch(next))
 
-  // Voluntário: se candidatar
-  router.post('/:id/candidatar', authenticate, authorize('voluntario'), (req, res, next) =>
-    controller.candidatar(req, res).catch(next))
-
   // Lar: ver candidatos da oportunidade
   router.get('/:id/candidatos', authenticate, authorize('lar'), (req, res, next) =>
     controller.listCandidatos(req, res).catch(next))

@@ -56,7 +56,7 @@ export class OpportunityController {
     const {
       titulo, descricao, categorias, habilidades_requeridas,
       cidade, estado, data_inicio, data_fim,
-      vagas_totais, carga_horaria, presencial,
+      vagas_totais, carga_horaria, presencial, endereco,
     } = req.body
 
     if (!titulo?.trim() || !descricao?.trim()) {
@@ -75,6 +75,7 @@ export class OpportunityController {
       data_fim: data_fim || null,
       vagas_totais: Number(vagas_totais) || 1,
       carga_horaria: carga_horaria || null,
+      endereco: endereco || null,
       presencial: presencial ?? true,
     })
     created(res, opp)

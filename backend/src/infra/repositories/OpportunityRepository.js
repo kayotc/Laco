@@ -6,7 +6,7 @@ import { AppError } from '../../shared/errors/AppError.js'
 const SELECT_WITH_LAR = `
   id, lar_id, titulo, descricao, categorias, habilidades_requeridas,
   cidade, estado, data_inicio, data_fim, vagas_totais, vagas_preenchidas,
-  carga_horaria, presencial, status, criado_em, atualizado_em,
+  carga_horaria, endereco, presencial, status, criado_em, atualizado_em,
   institution_profiles!inner(nome_lar, logo_url)
 `
 

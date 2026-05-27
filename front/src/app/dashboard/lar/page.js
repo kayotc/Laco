@@ -200,14 +200,32 @@ function ModalCandidatos({ opp, onClose, onResponder, onAvaliar, showToast }) {
 }
 
 /* ── Modal de convite ── */
-function ModalConvite({ voluntario, onClose, onEnviar }) {
+function ModalConvite({ voluntario, oportunidades, onClose, onEnviar }) {
+  const abertas = oportunidades.filter(o => o.status === 'aberta')
+  const [oportunidadeId, setOportunidadeId] = useState(abertas[0]?.id ?? '')
   const [mensagem, setMensagem] = useState(`Olá, ${voluntario?.nome ?? 'voluntário'}! Ficamos encantados com seu perfil e gostaríamos de convidá-lo(a) para colaborar conosco. Será um prazer contar com seu apoio!`)
   const [enviando, setEnviando] = useState(false)
   const handleEnviar = async () => {
     setEnviando(true)
-    try { await onEnviar(voluntario.id, mensagem); onClose() }
+    try { await onEnviar(voluntario.id, oportunidadeId, mensagem); onClose() }
     finally { setEnviando(false) }
   }
+  const podeSend = mensagem.trim() && oportunidadeId
+
+  if (abertas.length === 0) {
+    return (
+      <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+        <div className="modal-box">
+          <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--ink)', marginBottom: '0.75rem' }}>Nenhuma oportunidade aberta</p>
+          <p style={{ fontSize: '0.875rem', color: 'var(--ink-muted)', marginBottom: '1.25rem' }}>Para convidar um voluntário é necessário ter pelo menos uma oportunidade aberta. Crie uma oportunidade primeiro.</p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Fechar</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box">
@@ -218,13 +236,73 @@ function ModalConvite({ voluntario, onClose, onEnviar }) {
             <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 2 }}>{voluntario?.cidade}{voluntario?.estado ? `, ${voluntario.estado}` : ''}</p>
           </div>
         </div>
+        <div style={{ marginBottom: '1rem' }}>
+          <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 6 }}>Oportunidade *</label>
+          <select value={oportunidadeId} onChange={e => setOportunidadeId(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'var(--warm)', color: 'var(--ink)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }}>
+            {abertas.map(o => <option key={o.id} value={o.id}>{o.titulo}</option>)}
+          </select>
+        </div>
         <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 6 }}>Mensagem do convite</label>
-        <textarea rows={5} value={mensagem} onChange={e => setMensagem(e.target.value)} style={{ width: '100%', padding: '12px 14px', borderRadius: 12, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'var(--warm)', color: 'var(--ink)', fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' }} />
+        <textarea rows={4} value={mensagem} onChange={e => setMensagem(e.target.value)} style={{ width: '100%', padding: '12px 14px', borderRadius: 12, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'var(--warm)', color: 'var(--ink)', fontFamily: 'var(--font-body)', outline: 'none', resize: 'vertical', lineHeight: 1.6, boxSizing: 'border-box' }} />
         <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', marginTop: 4 }}>O voluntário receberá essa mensagem junto com o convite.</p>
         <div style={{ display: 'flex', gap: 8, marginTop: '1.25rem' }}>
           <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
-          <button onClick={handleEnviar} disabled={enviando || !mensagem.trim()} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: 'var(--coral)', color: 'white', cursor: enviando ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: enviando ? 0.8 : 1 }}>
+          <button onClick={handleEnviar} disabled={enviando || !podeSend} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: podeSend ? 'var(--coral)' : '#e5e7eb', color: podeSend ? 'white' : '#9ca3af', cursor: (!podeSend || enviando) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: enviando ? 0.8 : 1 }}>
             {enviando ? 'Enviando…' : 'Enviar convite'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Modal convidar grupo inteiro ── */
+function ModalConviteGrupoTodo({ grupo, membros, oportunidades, idsConvidados, onClose, onEnviar }) {
+  const abertas = oportunidades.filter(o => o.status === 'aberta')
+  const [oppId, setOppId] = useState(abertas[0]?.id ?? '')
+  const [mensagem, setMensagem] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const naoConvidados = membros.filter(m => !idsConvidados.has(m.voluntario_id))
+  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'var(--warm)', color: 'var(--ink)', fontFamily: 'var(--font-body)', outline: 'none', boxSizing: 'border-box' }
+  const labelStyle = { display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 5 }
+  const handleEnviar = async () => {
+    if (!oppId) return
+    setEnviando(true)
+    try { await onEnviar(oppId, mensagem || undefined) }
+    finally { setEnviando(false) }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 460 }}>
+        <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)', marginBottom: 4 }}>Convidar grupo inteiro</h3>
+        <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', marginBottom: '1.5rem' }}>{grupo.nome}</p>
+        {abertas.length === 0
+          ? <div style={{ padding: '1rem', borderRadius: 12, background: '#fef3c7', border: '1px solid #fde68a', marginBottom: '1rem' }}><p style={{ fontSize: '0.875rem', color: '#92400e' }}>Nenhuma oportunidade aberta. Crie uma oportunidade antes de enviar convites.</p></div>
+          : <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <label style={labelStyle}>Oportunidade *</label>
+                  <select value={oppId} onChange={e => setOppId(e.target.value)} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    {abertas.map(o => <option key={o.id} value={o.id}>{o.titulo}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Mensagem (opcional)</label>
+                  <textarea rows={3} value={mensagem} onChange={e => setMensagem(e.target.value)} placeholder="Conte um pouco sobre a oportunidade…" style={{ ...inputStyle, resize: 'none', lineHeight: 1.6 }} onFocus={e => { e.target.style.borderColor = 'var(--teal)' }} onBlur={e => { e.target.style.borderColor = 'var(--border)' }} />
+                </div>
+              </div>
+              <div style={{ padding: '10px 14px', borderRadius: 10, background: naoConvidados.length > 0 ? 'var(--teal-light)' : 'var(--warm)', marginBottom: '1.25rem' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--teal)', fontWeight: 500 }}>
+                  {naoConvidados.length > 0 ? `${naoConvidados.length} membro${naoConvidados.length !== 1 ? 's' : ''} receberão o convite` : 'Todos os membros já foram convidados'}
+                  {membros.length - naoConvidados.length > 0 && naoConvidados.length > 0 && <span style={{ fontWeight: 400, color: 'var(--ink-muted)' }}> · {membros.length - naoConvidados.length} já convidado{membros.length - naoConvidados.length !== 1 ? 's' : ''}</span>}
+                </p>
+              </div>
+            </>
+        }
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
+          <button onClick={handleEnviar} disabled={enviando || !oppId || naoConvidados.length === 0} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: (enviando || !oppId || naoConvidados.length === 0) ? '#e5e7eb' : 'var(--teal)', color: (enviando || !oppId || naoConvidados.length === 0) ? '#9ca3af' : 'white', cursor: (enviando || !oppId || naoConvidados.length === 0) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
+            {enviando ? 'Enviando…' : `Convidar ${naoConvidados.length} membro${naoConvidados.length !== 1 ? 's' : ''}`}
           </button>
         </div>
       </div>
@@ -234,7 +312,7 @@ function ModalConvite({ voluntario, onClose, onEnviar }) {
 
 /* ── Modal nova/editar oportunidade ── */
 function ModalOportunidade({ onClose, onSalvar, inicial }) {
-  const vazio = { titulo: '', descricao: '', categorias: [], habilidades_requeridas: [], vagas_totais: 1, carga_horaria: '', data_inicio: '', data_fim: '', presencial: true }
+  const vazio = { titulo: '', descricao: '', categorias: [], habilidades_requeridas: [], vagas_totais: 1, carga_horaria: '', endereco: '', data_inicio: '', data_fim: '', presencial: true }
   const [form, setForm] = useState(inicial ?? vazio)
   const [salvando, setSalvando] = useState(false)
   const toggleArr = (campo, val) => setForm(f => ({ ...f, [campo]: f[campo].includes(val) ? f[campo].filter(x => x !== val) : [...f[campo], val] }))
@@ -259,13 +337,16 @@ function ModalOportunidade({ onClose, onSalvar, inicial }) {
             <div><label style={labelStyle}>Data início</label><input type="date" style={inputStyle} value={form.data_inicio} onChange={e => setForm({ ...form, data_inicio: e.target.value })} /></div>
             <div><label style={labelStyle}>Data fim</label><input type="date" style={inputStyle} value={form.data_fim} onChange={e => setForm({ ...form, data_fim: e.target.value })} /></div>
           </div>
-          <div><label style={labelStyle}>Carga horária</label><input style={inputStyle} value={form.carga_horaria} onChange={e => setForm({ ...form, carga_horaria: e.target.value })} placeholder="Ex.: 4h por semana" onFocus={e => { e.target.style.borderColor = 'var(--coral)' }} onBlur={e => { e.target.style.borderColor = 'var(--border)' }} /></div>
+          <div><label style={labelStyle}>Horário</label><input style={inputStyle} value={form.carga_horaria} onChange={e => setForm({ ...form, carga_horaria: e.target.value })} placeholder="Ex.: Sábados às 9h – 12h" onFocus={e => { e.target.style.borderColor = 'var(--coral)' }} onBlur={e => { e.target.style.borderColor = 'var(--border)' }} /></div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--warm)', borderRadius: 10, border: '1.5px solid var(--border)' }}>
             <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--ink)' }}>Presencial</span>
             <button onClick={() => setForm({ ...form, presencial: !form.presencial })} style={{ position: 'relative', width: 44, height: 24, borderRadius: 100, border: 'none', cursor: 'pointer', background: form.presencial ? 'var(--coral)' : '#d1d5db', transition: 'background 0.2s', flexShrink: 0 }}>
               <span style={{ position: 'absolute', top: 3, width: 18, height: 18, borderRadius: '50%', background: 'white', transition: 'left 0.2s', left: form.presencial ? 23 : 3 }} />
             </button>
           </div>
+          {form.presencial && (
+            <div><label style={labelStyle}>Endereço</label><input style={inputStyle} value={form.endereco} onChange={e => setForm({ ...form, endereco: e.target.value })} placeholder="Ex.: Rua das Flores, 123 – Bairro, Cidade" onFocus={e => { e.target.style.borderColor = 'var(--coral)' }} onBlur={e => { e.target.style.borderColor = 'var(--border)' }} /></div>
+          )}
           <div>
             <p style={{ ...labelStyle, marginBottom: 8 }}>Categorias</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{CATEGORIAS_OPCOES.map(c => <button key={c} onClick={() => toggleArr('categorias', c)} style={chipStyle(form.categorias.includes(c))}>{c}</button>)}</div>
@@ -334,7 +415,8 @@ function OportunidadeCard({ opp, onMudarStatus, onEditar, onVerCandidatos }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div style={{ minWidth: 0 }}>
           <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--ink)', lineHeight: 1.3 }}>{opp.titulo}</p>
-          {opp.carga_horaria && <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>{opp.carga_horaria}</p>}
+          {opp.carga_horaria && <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>🕐 {opp.carga_horaria}</p>}
+          {opp.endereco && <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>📍 {opp.endereco}</p>}
         </div>
         <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '3px 10px', borderRadius: 100, background: s.bg, color: s.color, flexShrink: 0 }}>{s.label}</span>
       </div>
@@ -396,10 +478,18 @@ export default function DashboardLar() {
   const [editandoPerfil, setEditandoPerfil] = useState(false)
   const [perfilForm, setPerfilForm] = useState({})
   const [salvandoPerfil, setSalvandoPerfil] = useState(false)
+  const [cepBuscando, setCepBuscando] = useState(false)
+  const [uploadandoLogo, setUploadandoLogo] = useState(false)
   const [modalConvite, setModalConvite] = useState(null)
   const [modalOpp, setModalOpp] = useState(null)
   const [modalCandidatos, setModalCandidatos] = useState(null)
   const [toast, setToast] = useState(null)
+  const [gruposLista, setGruposLista] = useState([])
+  const [grupoSelecionado, setGrupoSelecionado] = useState(null)
+  const [membrosGrupo, setMembrosGrupo] = useState([])
+  const [carregandoMembros, setCarregandoMembros] = useState(false)
+  const [modalPerfilVol, setModalPerfilVol] = useState(null)
+  const [modalConviteGrupo, setModalConviteGrupo] = useState(null)
 
   const showToast = (msg, type = 'success') => setToast({ msg, type })
   const idsConvidados = new Set(convites.map(c => c.voluntario_id))
@@ -437,11 +527,11 @@ export default function DashboardLar() {
   }, [])
 
   useEffect(() => {
-    if (user) { buscarVoluntarios(); carregarConvites(); carregarPerfil(); carregarOportunidades() }
+    if (user) { buscarVoluntarios(); carregarConvites(); carregarPerfil(); carregarOportunidades(); carregarGruposLista() }
   }, [user, buscarVoluntarios, carregarConvites, carregarPerfil, carregarOportunidades])
 
-  const enviarConvite = async (voluntarioId, mensagem) => {
-    await api.post('/convites', { voluntario_id: voluntarioId, mensagem })
+  const enviarConvite = async (voluntarioId, oportunidadeId, mensagem) => {
+    await api.post('/convites', { voluntario_id: voluntarioId, oportunidade_id: oportunidadeId, mensagem })
     await carregarConvites()
     showToast('Convite enviado com sucesso!')
   }
@@ -451,6 +541,57 @@ export default function DashboardLar() {
     try { await api.put('/lares/me/perfil', perfilForm); await carregarPerfil(); setEditandoPerfil(false); showToast('Perfil atualizado!') }
     catch (err) { showToast(err.message ?? 'Erro ao salvar.', 'error') }
     finally { setSalvandoPerfil(false) }
+  }
+
+  const handleCepChange = (e) => {
+    const v = e.target.value.replace(/\D/g, '').slice(0, 8)
+    const fmt = v.length > 5 ? `${v.slice(0,5)}-${v.slice(5)}` : v
+    setPerfilForm(f => ({ ...f, cep: fmt }))
+  }
+
+  const handleCepBlur = async () => {
+    const digits = (perfilForm.cep ?? '').replace(/\D/g, '')
+    if (digits.length !== 8) return
+    setCepBuscando(true)
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
+      const data = await res.json()
+      if (data.erro) return
+      setPerfilForm(f => ({
+        ...f,
+        endereco: [data.logradouro, data.bairro].filter(Boolean).join(', '),
+        cidade: data.localidade ?? f.cidade,
+        estado: data.uf ?? f.estado,
+      }))
+    } catch {}
+    finally { setCepBuscando(false) }
+  }
+
+  const handleLogoUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploadandoLogo(true)
+    try {
+      const fd = new FormData()
+      fd.append('foto', file)
+      const res = await api.post('/lares/me/logo', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+      setPerfilForm(f => ({ ...f, logo_url: res.data.logo_url }))
+      await carregarPerfil()
+      showToast('Foto atualizada!')
+    } catch (err) { showToast(err.message ?? 'Erro ao enviar foto.', 'error') }
+    finally { setUploadandoLogo(false) }
+  }
+
+  const carregarGruposLista = useCallback(async () => {
+    try { const r = await api.get('/grupos'); setGruposLista(r.data ?? []) } catch {}
+  }, [])
+
+  const selecionarGrupo = async (grupo) => {
+    setGrupoSelecionado(grupo)
+    setCarregandoMembros(true)
+    try { const r = await api.get(`/grupos/${grupo.id}/membros`); setMembrosGrupo(r.data ?? []) }
+    catch { setMembrosGrupo([]) }
+    finally { setCarregandoMembros(false) }
   }
 
   const criarOportunidade = async (form) => {
@@ -491,9 +632,62 @@ export default function DashboardLar() {
     <div style={{ minHeight: '100vh', background: 'var(--warm)' }}>
       <Toast toast={toast} onClose={() => setToast(null)} />
 
-      {modalConvite && <ModalConvite voluntario={modalConvite} onClose={() => setModalConvite(null)} onEnviar={enviarConvite} />}
+      {modalConvite && <ModalConvite voluntario={modalConvite} oportunidades={oportunidades} onClose={() => setModalConvite(null)} onEnviar={enviarConvite} />}
       {modalOpp && <ModalOportunidade inicial={modalOpp === 'nova' ? null : modalOpp} onClose={() => setModalOpp(null)} onSalvar={modalOpp === 'nova' ? criarOportunidade : editarOportunidade} />}
       {modalCandidatos && <ModalCandidatos opp={modalCandidatos} onClose={() => setModalCandidatos(null)} onResponder={responderCandidatura} onAvaliar={avaliar} showToast={showToast} />}
+      {modalPerfilVol && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModalPerfilVol(null)}>
+          <div className="modal-box" style={{ maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <button onClick={() => setModalPerfilVol(null)} style={{ float: 'right', background: 'none', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: 'var(--ink-muted)' }}>✕</button>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: '1.5rem' }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--coral)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: '1.5rem' }}>
+                {modalPerfilVol?.nome?.[0]?.toUpperCase() ?? '?'}
+              </div>
+              <p style={{ fontWeight: 700, fontSize: '1.1rem', color: 'var(--ink)', textAlign: 'center' }}>{modalPerfilVol?.nome}</p>
+              {modalPerfilVol?.cidade && <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)' }}>{modalPerfilVol.cidade}{modalPerfilVol.estado ? `, ${modalPerfilVol.estado}` : ''}</p>}
+              {modalPerfilVol?.reputacao_score > 0 && <div style={{ display: 'flex', gap: 2 }}>{[1,2,3,4,5].map(n => <span key={n} style={{ color: n <= Math.round(modalPerfilVol.reputacao_score) ? '#f59e0b' : '#d1d5db', fontSize: '1rem' }}>★</span>)}</div>}
+            </div>
+            {modalPerfilVol?.bio && <div style={{ marginBottom: '1.25rem' }}><p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>Sobre</p><p style={{ fontSize: '0.875rem', color: 'var(--ink)', lineHeight: 1.6 }}>{modalPerfilVol.bio}</p></div>}
+            {modalPerfilVol?.habilidades?.length > 0 && (
+              <div style={{ marginBottom: '1.25rem' }}>
+                <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Habilidades</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {modalPerfilVol.habilidades.map(h => <span key={h} style={{ fontSize: '0.78rem', fontWeight: 500, padding: '4px 12px', borderRadius: 100, background: 'var(--coral-light)', color: 'var(--coral-dark)' }}>{h}</span>)}
+                </div>
+              </div>
+            )}
+            {modalPerfilVol?.disponibilidade?.length > 0 && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--ink-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Disponibilidade</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {modalPerfilVol.disponibilidade.map(d => <span key={d} style={{ fontSize: '0.78rem', fontWeight: 500, padding: '4px 12px', borderRadius: 100, background: 'var(--teal-light)', color: 'var(--teal)' }}>{d}</span>)}
+                </div>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setModalPerfilVol(null)} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Fechar</button>
+              <button onClick={() => { setModalConvite(modalPerfilVol); setModalPerfilVol(null) }} disabled={idsConvidados.has(modalPerfilVol?.id)} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: idsConvidados.has(modalPerfilVol?.id) ? 'var(--teal-light)' : 'var(--teal)', color: idsConvidados.has(modalPerfilVol?.id) ? 'var(--teal)' : 'white', cursor: idsConvidados.has(modalPerfilVol?.id) ? 'default' : 'pointer', fontFamily: 'var(--font-body)' }}>
+                {idsConvidados.has(modalPerfilVol?.id) ? '✓ Já convidado' : 'Convidar este voluntário'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {modalConviteGrupo && (
+        <ModalConviteGrupoTodo
+          grupo={modalConviteGrupo.grupo}
+          membros={modalConviteGrupo.membros}
+          oportunidades={oportunidades}
+          idsConvidados={idsConvidados}
+          onClose={() => setModalConviteGrupo(null)}
+          onEnviar={async (oportunidadeId, mensagem) => {
+            const naoConvidados = modalConviteGrupo.membros.filter(m => !idsConvidados.has(m.voluntario_id))
+            await Promise.allSettled(naoConvidados.map(m => enviarConvite(m.voluntario_id, oportunidadeId, mensagem)))
+            showToast(`${naoConvidados.length} convite(s) enviado(s)!`)
+            setModalConviteGrupo(null)
+          }}
+        />
+      )}
 
       {/* Header */}
       <header style={{ position: 'sticky', top: 0, zIndex: 40, background: 'var(--white)', borderBottom: '1px solid var(--border)' }}>
@@ -518,6 +712,7 @@ export default function DashboardLar() {
         <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
           {[
             { id: 'buscar', label: 'Buscar Voluntários' },
+            { id: 'grupos', label: 'Buscar Grupos' },
             { id: 'oportunidades', label: `Oportunidades${abertas > 0 ? ` (${abertas})` : ''}` },
             { id: 'convites', label: `Convites (${convites.length})` },
             { id: 'perfil', label: 'Perfil do Lar' },
@@ -574,6 +769,95 @@ export default function DashboardLar() {
         )}
 
         {/* ── ABA: OPORTUNIDADES ── */}
+        {/* ── ABA: GRUPOS ── */}
+        {aba === 'grupos' && (
+          <div>
+            {grupoSelecionado ? (
+              <div>
+                {/* Cabeçalho do grupo selecionado */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => { setGrupoSelecionado(null); setMembrosGrupo([]) }} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: '0.85rem', color: 'var(--ink-muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', padding: 0 }}>← Voltar</button>
+                  <div style={{ flex: 1 }}>
+                    <h2 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)' }}>{grupoSelecionado.nome}</h2>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 1 }}>Criado por {grupoSelecionado.volunteer_profiles?.nome} · {membrosGrupo.length} membro{membrosGrupo.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  {membrosGrupo.length > 0 && (
+                    <button onClick={() => setModalConviteGrupo({ grupo: grupoSelecionado, membros: membrosGrupo })} style={{ padding: '9px 18px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, background: 'var(--teal)', color: 'white', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                      Convidar grupo inteiro
+                    </button>
+                  )}
+                </div>
+                {grupoSelecionado.descricao && <p style={{ fontSize: '0.875rem', color: 'var(--ink-muted)', marginBottom: '1.25rem', lineHeight: 1.5 }}>{grupoSelecionado.descricao}</p>}
+
+                {carregandoMembros
+                  ? <p style={{ color: 'var(--ink-muted)', fontSize: '0.875rem' }}>Carregando membros…</p>
+                  : membrosGrupo.length === 0
+                    ? <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--ink-muted)' }}><p>Este grupo ainda não tem membros.</p></div>
+                    : <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        {membrosGrupo.map(m => {
+                          const v = m.volunteer_profiles
+                          const jaConvidado = idsConvidados.has(m.voluntario_id)
+                          return (
+                            <div key={m.voluntario_id} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 14, padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: 14, transition: 'box-shadow 0.15s' }}
+                              onMouseEnter={e => e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.07)'}
+                              onMouseLeave={e => e.currentTarget.style.boxShadow = ''}>
+                              <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--coral)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: '1.1rem', flexShrink: 0 }}>{v?.nome?.[0]?.toUpperCase() ?? '?'}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <button onClick={() => setModalPerfilVol(v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'var(--font-body)', textAlign: 'left' }}>
+                                  <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--coral)', textDecoration: 'underline', textDecorationStyle: 'dotted', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v?.nome ?? 'Voluntário'}</p>
+                                </button>
+                                {v?.cidade && <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', marginTop: 1 }}>{v.cidade}{v.estado ? `, ${v.estado}` : ''}</p>}
+                                {v?.habilidades?.length > 0 && (
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+                                    {v.habilidades.slice(0, 4).map(h => <span key={h} style={{ fontSize: '0.68rem', fontWeight: 500, padding: '2px 8px', borderRadius: 100, background: 'var(--coral-light)', color: 'var(--coral-dark)' }}>{h}</span>)}
+                                    {v.habilidades.length > 4 && <span style={{ fontSize: '0.68rem', fontWeight: 500, padding: '2px 8px', borderRadius: 100, background: 'var(--warm)', color: 'var(--ink-muted)' }}>+{v.habilidades.length - 4}</span>}
+                                  </div>
+                                )}
+                              </div>
+                              <button onClick={() => setModalConvite({ ...v, id: m.voluntario_id })} disabled={jaConvidado} style={{ padding: '8px 16px', borderRadius: 9, fontSize: '0.8rem', fontWeight: 600, border: 'none', background: jaConvidado ? 'var(--teal-light)' : 'var(--teal)', color: jaConvidado ? 'var(--teal)' : 'white', cursor: jaConvidado ? 'default' : 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>
+                                {jaConvidado ? '✓ Convidado' : 'Convidar'}
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                }
+              </div>
+            ) : (
+              <div>
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <h2 style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)' }}>Buscar grupos de voluntários</h2>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginTop: 2 }}>{gruposLista.length} grupo{gruposLista.length !== 1 ? 's' : ''} disponíveis</p>
+                </div>
+                {gruposLista.length === 0
+                  ? <div style={{ textAlign: 'center', padding: '5rem 1rem', color: 'var(--ink-muted)' }}>
+                      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👥</div>
+                      <p style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--ink)', marginBottom: 6 }}>Nenhum grupo criado ainda</p>
+                      <p style={{ fontSize: '0.875rem' }}>Os voluntários ainda não formaram grupos.</p>
+                    </div>
+                  : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                      {gruposLista.map(g => (
+                        <div key={g.id} onClick={() => selecionarGrupo(g)} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 10, cursor: 'pointer', transition: 'transform 0.15s, box-shadow 0.15s' }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(0,0,0,0.08)' }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                            <div>
+                              <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--ink)' }}>{g.nome}</p>
+                              <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', marginTop: 2 }}>por {g.volunteer_profiles?.nome ?? 'Voluntário'}</p>
+                            </div>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '3px 10px', borderRadius: 100, background: 'var(--teal-light)', color: 'var(--teal)', flexShrink: 0 }}>{g.total_membros ?? 0} membros</span>
+                          </div>
+                          {g.descricao && <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{g.descricao}</p>}
+                          <p style={{ fontSize: '0.78rem', color: 'var(--teal)', fontWeight: 500, marginTop: 'auto' }}>Ver membros →</p>
+                        </div>
+                      ))}
+                    </div>
+                }
+              </div>
+            )}
+          </div>
+        )}
+
         {aba === 'oportunidades' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
@@ -625,23 +909,33 @@ export default function DashboardLar() {
             </div>
             {!editandoPerfil ? (
               <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {perfil ? [
-                  { label: 'Nome do Lar', value: perfil.nome_lar },
-                  { label: 'CNPJ', value: perfil.cnpj },
-                  { label: 'Cidade / Estado', value: perfil.cidade && `${perfil.cidade}${perfil.estado ? `, ${perfil.estado}` : ''}` },
-                  { label: 'Endereço', value: perfil.endereco },
-                  { label: 'Telefone', value: perfil.telefone },
-                  { label: 'E-mail de contato', value: perfil.email_contato },
-                  { label: 'Responsável', value: perfil.responsavel },
-                  { label: 'Área de atuação', value: perfil.area_atuacao },
-                  { label: 'Chave PIX', value: perfil.chave_pix },
-                  { label: 'Descrição', value: perfil.descricao },
-                ].filter(f => f.value).map(({ label, value }) => (
-                  <div key={label} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
-                    <p style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 3 }}>{label}</p>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--ink)', lineHeight: 1.5 }}>{value}</p>
-                  </div>
-                )) : (
+                {perfil ? (
+                  <>
+                    {perfil.logo_url && (
+                      <div style={{ display: 'flex', justifyContent: 'center', paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+                        <img src={perfil.logo_url} alt="Logo do lar" style={{ width: 80, height: 80, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+                      </div>
+                    )}
+                    {[
+                      { label: 'Nome do Lar', value: perfil.nome_lar },
+                      { label: 'CNPJ', value: perfil.cnpj },
+                      { label: 'CEP', value: perfil.cep },
+                      { label: 'Cidade / Estado', value: perfil.cidade && `${perfil.cidade}${perfil.estado ? `, ${perfil.estado}` : ''}` },
+                      { label: 'Endereço', value: perfil.endereco },
+                      { label: 'Telefone', value: perfil.telefone },
+                      { label: 'E-mail de contato', value: perfil.email_contato },
+                      { label: 'Responsável', value: perfil.responsavel },
+                      { label: 'Área de atuação', value: perfil.area_atuacao },
+                      { label: 'Chave PIX', value: perfil.chave_pix },
+                      { label: 'Descrição', value: perfil.descricao },
+                    ].filter(f => f.value).map(({ label, value }) => (
+                      <div key={label} style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.75rem' }}>
+                        <p style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 3 }}>{label}</p>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--ink)', lineHeight: 1.5 }}>{value}</p>
+                      </div>
+                    ))}
+                  </>
+                ) : (
                   <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--ink-muted)' }}>
                     <p style={{ fontSize: '0.875rem' }}>Perfil ainda não preenchido.</p>
                     <button onClick={() => setEditandoPerfil(true)} style={{ marginTop: '0.75rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--coral)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Preencher agora →</button>
@@ -650,10 +944,25 @@ export default function DashboardLar() {
               </div>
             ) : (
               <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+                {/* Upload de foto */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, paddingBottom: '1rem', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ position: 'relative' }}>
+                    {perfilForm.logo_url
+                      ? <img src={perfilForm.logo_url} alt="Logo" style={{ width: 72, height: 72, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--border)' }} />
+                      : <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--teal-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.8rem' }}>🏠</div>
+                    }
+                  </div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--teal)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                    {uploadandoLogo ? 'Enviando…' : '📷 Alterar foto'}
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} style={{ display: 'none' }} disabled={uploadandoLogo} />
+                  </label>
+                </div>
+
+                {/* Campos de texto */}
                 {[
                   { label: 'Nome do Lar', field: 'nome_lar' }, { label: 'CNPJ', field: 'cnpj' },
-                  { label: 'Cidade', field: 'cidade' }, { label: 'Estado (UF)', field: 'estado' },
-                  { label: 'Endereço', field: 'endereco' }, { label: 'Telefone', field: 'telefone' },
+                  { label: 'Telefone', field: 'telefone' },
                   { label: 'E-mail de contato', field: 'email_contato' }, { label: 'Responsável', field: 'responsavel' },
                   { label: 'Área de atuação', field: 'area_atuacao' }, { label: 'Chave PIX', field: 'chave_pix' },
                 ].map(({ label, field }) => (
@@ -662,10 +971,36 @@ export default function DashboardLar() {
                     <input type="text" value={perfilForm[field] ?? ''} onChange={e => setPerfilForm({ ...perfilForm, [field]: e.target.value })} className="auth-input" style={{ fontSize: '0.875rem' }} />
                   </div>
                 ))}
+
+                {/* CEP com ViaCEP */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 5 }}>
+                    CEP {cepBuscando && <span style={{ color: 'var(--teal)', fontWeight: 400 }}>buscando…</span>}
+                  </label>
+                  <input type="text" inputMode="numeric" value={perfilForm.cep ?? ''} onChange={handleCepChange} onBlur={handleCepBlur} placeholder="00000-000" className="auth-input" style={{ fontSize: '0.875rem' }} />
+                </div>
+
+                {/* Endereço, cidade, estado preenchidos pelo CEP */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 5 }}>Endereço (número preenchido por você)</label>
+                  <input type="text" value={perfilForm.endereco ?? ''} onChange={e => setPerfilForm({ ...perfilForm, endereco: e.target.value })} className="auth-input" style={{ fontSize: '0.875rem' }} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10 }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 5 }}>Cidade</label>
+                    <input type="text" value={perfilForm.cidade ?? ''} onChange={e => setPerfilForm({ ...perfilForm, cidade: e.target.value })} className="auth-input" style={{ fontSize: '0.875rem' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 5 }}>Estado (UF)</label>
+                    <input type="text" maxLength={2} value={perfilForm.estado ?? ''} onChange={e => setPerfilForm({ ...perfilForm, estado: e.target.value })} className="auth-input" style={{ fontSize: '0.875rem' }} />
+                  </div>
+                </div>
+
                 <div>
                   <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, color: 'var(--ink-muted)', marginBottom: 5 }}>Descrição</label>
                   <textarea rows={4} value={perfilForm.descricao ?? ''} onChange={e => setPerfilForm({ ...perfilForm, descricao: e.target.value })} className="auth-input" style={{ fontSize: '0.875rem', resize: 'vertical', lineHeight: 1.6 }} />
                 </div>
+
                 <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                   <button onClick={() => { setEditandoPerfil(false); setPerfilForm(perfil ?? {}) }} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
                   <button onClick={salvarPerfil} disabled={salvandoPerfil} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: 'var(--coral)', color: 'white', cursor: salvandoPerfil ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: salvandoPerfil ? 0.8 : 1 }}>

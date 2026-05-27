@@ -394,6 +394,58 @@ footer {
 .footer-link:hover { color: white; }
 .footer-copy { font-size: 0.75rem; opacity: 0.4; }
 
+/* USER PILL — Navbar estado logado */
+.user-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 4px; border-radius: 100px;
+  background: var(--warm); border: 1px solid var(--border);
+  cursor: pointer; font-family: var(--font-body);
+  font-size: 0.85rem; color: var(--ink);
+  transition: border-color 0.2s, background 0.2s;
+}
+.user-pill:hover { border-color: var(--coral); background: var(--coral-light); }
+.user-pill:hover .user-avatar { opacity: 0.9; }
+
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700; color: white; flex-shrink: 0;
+}
+
+.user-pill-name {
+  max-width: 140px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+
+.user-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: 14px; padding: 5px; min-width: 168px;
+  box-shadow: 0 8px 32px rgba(26,20,16,0.12);
+  animation: dropdownIn 0.15s ease;
+  z-index: 200;
+}
+
+.dropdown-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 12px; border-radius: 9px;
+  font-size: 0.85rem; color: var(--ink);
+  text-decoration: none; cursor: pointer;
+  background: none; border: none; width: 100%;
+  text-align: left; font-family: var(--font-body);
+  transition: background 0.15s;
+}
+.dropdown-item:hover { background: var(--warm); }
+.dropdown-item-danger { color: #dc2626; }
+.dropdown-item-danger:hover { background: #fef2f2; color: #b91c1c; }
+
+.dropdown-divider { height: 1px; background: var(--border); margin: 3px 0; }
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 /* ANIMATIONS */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(24px); }

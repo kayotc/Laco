@@ -6,6 +6,7 @@ const schema = z.object({
   senha: z.string().min(8, 'Senha deve ter mínimo 8 caracteres'),
   nome: z.string().min(2, 'Nome deve ter mínimo 2 caracteres'),
   role: z.enum(['lar', 'voluntario']),
+  cnpj: z.string().optional(),
 })
 
 export class RegisterUseCase {
@@ -21,7 +22,7 @@ export class RegisterUseCase {
     const result = schema.safeParse(input)
     if (!result.success) throw new ValidationError('Dados inválidos', result.error.errors)
 
-    const { email, senha, nome, role } = result.data
+    const { email, senha, nome, role, cnpj } = result.data
 
     const existing = await this.userRepo.findByEmail(email)
     if (existing) throw new ConflictError('E-mail já cadastrado')
@@ -33,7 +34,7 @@ export class RegisterUseCase {
     if (role === 'voluntario') {
       await this.volunteerRepo.create({ user_id: user.id, nome })
     } else if (role === 'lar') {
-      await this.institutionRepo.create({ user_id: user.id, nome_lar: nome })
+      await this.institutionRepo.create({ user_id: user.id, nome_lar: nome, cnpj: cnpj ?? null })
     }
 
     const payload = { id: user.id, email: user.email, role: user.role }

@@ -145,23 +145,9 @@ function ConviteCard({ convite, onResponder }) {
 }
 
 /* ── Card de oportunidade ── */
-function OportunidadeCard({ opp, candidatura, onCandidatar }) {
-  const [candidatando, setCandidatando] = useState(false)
+function OportunidadeCard({ opp }) {
   const vagasDisponiveis = opp.vagas_totais - (opp.vagas_preenchidas ?? 0)
   const semVagas = vagasDisponiveis <= 0
-
-  const STATUS_CAND = {
-    pendente:  { label: 'Candidatura enviada', bg: '#fef9c3', color: '#854d0e' },
-    aprovado:  { label: 'Aprovado!', bg: 'var(--teal-light)', color: 'var(--teal)' },
-    rejeitado: { label: 'Não aprovado', bg: '#fee2e2', color: '#dc2626' },
-    retirado:  { label: 'Retirado', bg: '#f3f4f6', color: '#6b7280' },
-  }
-
-  const handleCandidatar = async () => {
-    setCandidatando(true)
-    try { await onCandidatar(opp.id) } catch {}
-    finally { setCandidatando(false) }
-  }
 
   return (
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 10, transition: 'transform 0.15s, box-shadow 0.15s' }}
@@ -195,55 +181,303 @@ function OportunidadeCard({ opp, candidatura, onCandidatar }) {
       </div>
 
       {opp.presencial && opp.cidade && <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>📍 {opp.cidade}{opp.estado ? `, ${opp.estado}` : ''}</p>}
+    </div>
+  )
+}
 
-      {candidatura ? (
-        <span style={{ fontSize: '0.8rem', fontWeight: 500, padding: '8px 14px', borderRadius: 10, textAlign: 'center', background: (STATUS_CAND[candidatura.status] ?? STATUS_CAND.pendente).bg, color: (STATUS_CAND[candidatura.status] ?? STATUS_CAND.pendente).color }}>
-          {(STATUS_CAND[candidatura.status] ?? STATUS_CAND.pendente).label}
-        </span>
-      ) : (
-        <button
-          onClick={handleCandidatar}
-          disabled={candidatando || semVagas}
-          style={{ padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, border: 'none', cursor: (candidatando || semVagas) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', background: semVagas ? '#f3f4f6' : 'var(--coral)', color: semVagas ? '#6b7280' : 'white', transition: 'opacity 0.15s', opacity: candidatando ? 0.7 : 1 }}
-        >
-          {candidatando ? 'Enviando…' : semVagas ? 'Sem vagas' : 'Candidatar-se'}
-        </button>
+/* ── Modal criar grupo ── */
+function ModalCriarGrupo({ onClose, onCreate }) {
+  const [form, setForm] = useState({ nome: '', descricao: '' })
+  const [criando, setCriando] = useState(false)
+  const handleCriar = async () => {
+    if (!form.nome.trim()) return
+    setCriando(true)
+    try { await onCreate(form); onClose() }
+    finally { setCriando(false) }
+  }
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box">
+        <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)', marginBottom: '1.25rem' }}>Criar novo grupo</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label className="auth-label">Nome do grupo *</label>
+            <input type="text" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex.: Voluntários de Educação PE" className="auth-input" style={{ fontSize: '0.875rem' }} />
+          </div>
+          <div>
+            <label className="auth-label">Descrição (opcional)</label>
+            <textarea rows={3} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="Do que se trata este grupo?" className="auth-input" style={{ fontSize: '0.875rem', resize: 'none', lineHeight: 1.6 }} />
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, marginTop: '1.25rem' }}>
+          <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
+          <button onClick={handleCriar} disabled={criando || !form.nome.trim()} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: form.nome.trim() ? 'var(--coral)' : '#e5e7eb', color: form.nome.trim() ? 'white' : '#9ca3af', cursor: (!form.nome.trim() || criando) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
+            {criando ? 'Criando…' : 'Criar grupo'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Card de convite de grupo ── */
+function GroupConviteCard({ convite, onResponder }) {
+  const [respondendo, setRespondendo] = useState(false)
+  const responder = async (resposta) => {
+    setRespondendo(true)
+    try { await onResponder(convite.id, resposta) } catch {}
+    finally { setRespondendo(false) }
+  }
+  const STATUS = {
+    aceito:   { label: 'Aceito',   bg: 'var(--teal-light)',  color: 'var(--teal)' },
+    recusado: { label: 'Recusado', bg: '#fee2e2', color: '#dc2626' },
+  }
+  const s = STATUS[convite.status]
+  const nomeGrupo = convite.groups?.nome ?? 'Grupo'
+  const nomeInvitante = convite.volunteer_profiles?.nome ?? 'Voluntário'
+  return (
+    <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <div>
+          <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ink)' }}>👥 {nomeGrupo}</p>
+          <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>Convidado por {nomeInvitante} · {new Date(convite.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+        </div>
+        {s && <span style={{ fontSize: '0.72rem', fontWeight: 500, padding: '3px 10px', borderRadius: 100, background: s.bg, color: s.color, flexShrink: 0 }}>{s.label}</span>}
+      </div>
+      {convite.mensagem && <p style={{ fontSize: '0.85rem', color: 'var(--ink)', background: 'var(--warm)', borderRadius: 10, padding: '10px 14px', fontStyle: 'italic', lineHeight: 1.6 }}>"{convite.mensagem}"</p>}
+      {convite.status === 'pendente' && (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => responder('recusado')} disabled={respondendo} style={{ flex: 1, padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 500, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Recusar</button>
+          <button onClick={() => responder('aceito')} disabled={respondendo} style={{ flex: 1, padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, border: 'none', background: 'var(--teal)', color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>{respondendo ? '…' : 'Aceitar'}</button>
+        </div>
       )}
     </div>
   )
 }
 
-/* ── Card de candidatura (aba minhas candidaturas) ── */
-function CandidaturaCard({ candidatura, user, onAvaliar }) {
-  const opp = candidatura.oportunidade
-  const STATUS = {
-    pendente:  { label: 'Aguardando resposta', bg: '#fef9c3', color: '#854d0e' },
-    aprovado:  { label: 'Aprovado', bg: 'var(--teal-light)', color: 'var(--teal)' },
-    rejeitado: { label: 'Não aprovado', bg: '#fee2e2', color: '#dc2626' },
-    retirado:  { label: 'Retirado', bg: '#f3f4f6', color: '#6b7280' },
-  }
-  const s = STATUS[candidatura.status] ?? STATUS.pendente
-  const podeAvaliar = candidatura.status === 'aprovado' && opp?.status === 'concluida'
+/* ── Modal convidar voluntário para grupo ── */
+function ModalConvidarParaGrupo({ grupo, meuVoluntarioId, onClose }) {
+  const [membros, setMembros] = useState([])
+  const [busca, setBusca] = useState('')
+  const [resultados, setResultados] = useState([])
+  const [buscando, setBuscando] = useState(false)
+  const [convidados, setConvidados] = useState(new Set())
+  const [enviando, setEnviando] = useState(null)
 
+  useEffect(() => {
+    api.get(`/grupos/${grupo.id}/membros`).then(r => setMembros(r ?? [])).catch(() => {})
+  }, [grupo.id])
+
+  const buscarVols = async (q) => {
+    if (!q.trim()) { setResultados([]); return }
+    setBuscando(true)
+    try { const r = await api.get(`/voluntarios?termo=${encodeURIComponent(q)}&limit=8`); setResultados(r.data?.data ?? []) }
+    catch {} finally { setBuscando(false) }
+  }
+
+  const convidar = async (vol) => {
+    setEnviando(vol.id)
+    try {
+      await api.post(`/grupos/${grupo.id}/convidar`, { convidado_id: vol.id })
+      setConvidados(prev => new Set([...prev, vol.id]))
+    } catch (err) {
+      if (err?.status === 409) setConvidados(prev => new Set([...prev, vol.id]))
+    } finally {
+      setEnviando(null)
+    }
+  }
+
+  const membroIds = new Set(membros.map(m => m.voluntario_id))
+  const labelStyle = { display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)' }}>Convidar voluntários</h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 2 }}>{grupo.nome}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--ink-muted)', padding: 4 }}>✕</button>
+        </div>
+        <div>
+          <p style={labelStyle}>Buscar voluntários</p>
+          <input
+            className="auth-input"
+            style={{ fontSize: '0.875rem', marginBottom: 8 }}
+            placeholder="Buscar por nome…"
+            value={busca}
+            onChange={e => { setBusca(e.target.value); buscarVols(e.target.value) }}
+          />
+          {buscando && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginBottom: 6 }}>Buscando…</p>}
+          {!busca.trim() && <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', textAlign: 'center', padding: '1.5rem 0' }}>Digite um nome para buscar voluntários.</p>}
+          {!buscando && busca.trim() && resultados.length === 0 && <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', textAlign: 'center', padding: '1rem 0' }}>Nenhum voluntário encontrado.</p>}
+          {resultados.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {resultados.map(v => {
+                const jaMembro = membroIds.has(v.id) || v.id === meuVoluntarioId
+                const jaConvidado = convidados.has(v.id)
+                return (
+                  <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--white)', border: '1px solid var(--border)' }}>
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: '0.8rem', flexShrink: 0 }}>{v.nome?.[0]?.toUpperCase() ?? '?'}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.nome}</p>
+                      {v.cidade && <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{v.cidade}</p>}
+                    </div>
+                    <button
+                      onClick={() => !jaMembro && !jaConvidado && convidar(v)}
+                      disabled={jaMembro || jaConvidado || enviando === v.id}
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 8, border: 'none', background: jaMembro ? 'var(--teal-light)' : jaConvidado ? '#dcfce7' : 'var(--coral)', color: jaMembro ? 'var(--teal)' : jaConvidado ? '#15803d' : 'white', cursor: (jaMembro || jaConvidado) ? 'default' : 'pointer', flexShrink: 0, fontFamily: 'var(--font-body)' }}
+                    >
+                      {enviando === v.id ? '…' : jaMembro ? '✓ Membro' : jaConvidado ? '✓ Convidado' : 'Convidar'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Modal gerenciar grupo (criador) ── */
+function ModalGerenciarGrupo({ grupo, onClose, onAtualizar }) {
+  const [membros, setMembros] = useState([])
+  const [busca, setBusca] = useState('')
+  const [resultados, setResultados] = useState([])
+  const [buscando, setBuscando] = useState(false)
+  const [removendo, setRemovendo] = useState(null)
+  const [adicionando, setAdicionando] = useState(null)
+
+  useEffect(() => {
+    api.get(`/grupos/${grupo.id}/membros`).then(r => setMembros(r ?? [])).catch(() => {})
+  }, [grupo.id])
+
+  const buscarVols = async (q) => {
+    if (!q.trim()) { setResultados([]); return }
+    setBuscando(true)
+    try { const r = await api.get(`/voluntarios?termo=${encodeURIComponent(q)}&limit=8`); setResultados(r.data?.data ?? []) }
+    catch {} finally { setBuscando(false) }
+  }
+
+  const remover = async (voluntarioId) => {
+    setRemovendo(voluntarioId)
+    try { await api.delete(`/grupos/${grupo.id}/membros/${voluntarioId}`); setMembros(m => m.filter(x => x.voluntario_id !== voluntarioId)); onAtualizar() }
+    catch {} finally { setRemovendo(null) }
+  }
+
+  const adicionar = async (vol) => {
+    setAdicionando(vol.id)
+    try { await api.post(`/grupos/${grupo.id}/membros`, { voluntario_id: vol.id }); const r = await api.get(`/grupos/${grupo.id}/membros`); setMembros(r ?? []); onAtualizar() }
+    catch {} finally { setAdicionando(null) }
+  }
+
+  const membroIds = new Set(membros.map(m => m.voluntario_id))
+  const labelStyle = { display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.05em' }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal-box" style={{ maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)' }}>Gerenciar grupo</h3>
+            <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginTop: 2 }}>{grupo.nome}</p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--ink-muted)', padding: 4 }}>✕</button>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <p style={labelStyle}>Membros ({membros.length})</p>
+          {membros.length === 0
+            ? <p style={{ fontSize: '0.85rem', color: 'var(--ink-muted)' }}>Nenhum membro ainda.</p>
+            : <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {membros.map(m => {
+                  const v = m.volunteer_profiles
+                  return (
+                    <div key={m.voluntario_id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--warm)', border: '1px solid var(--border)' }}>
+                      <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--coral)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: '0.85rem', flexShrink: 0 }}>{v?.nome?.[0]?.toUpperCase() ?? '?'}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v?.nome ?? 'Voluntário'}</p>
+                        {v?.cidade && <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{v.cidade}{v.estado ? `, ${v.estado}` : ''}</p>}
+                      </div>
+                      {v?.habilidades?.slice(0, 2).map(h => <span key={h} style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: 100, background: 'var(--coral-light)', color: 'var(--coral-dark)', whiteSpace: 'nowrap' }}>{h}</span>)}
+                      <button onClick={() => remover(m.voluntario_id)} disabled={removendo === m.voluntario_id} style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 8, border: '1px solid #fecaca', background: '#fff5f5', color: '#dc2626', cursor: 'pointer', flexShrink: 0, fontFamily: 'var(--font-body)' }}>
+                        {removendo === m.voluntario_id ? '…' : 'Remover'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+          }
+        </div>
+
+        <div>
+          <p style={labelStyle}>Adicionar voluntário</p>
+          <input
+            className="auth-input"
+            style={{ fontSize: '0.875rem', marginBottom: 8 }}
+            placeholder="Buscar por nome…"
+            value={busca}
+            onChange={e => { setBusca(e.target.value); buscarVols(e.target.value) }}
+          />
+          {buscando && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginBottom: 6 }}>Buscando…</p>}
+          {resultados.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {resultados.map(v => {
+                const jaMembro = membroIds.has(v.id)
+                return (
+                  <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--white)', border: '1px solid var(--border)' }}>
+                    <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: '0.8rem', flexShrink: 0 }}>{v.nome?.[0]?.toUpperCase() ?? '?'}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.nome}</p>
+                      {v.cidade && <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{v.cidade}</p>}
+                    </div>
+                    <button onClick={() => adicionar(v)} disabled={jaMembro || adicionando === v.id} style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 8, border: 'none', background: jaMembro ? 'var(--teal-light)' : 'var(--teal)', color: jaMembro ? 'var(--teal)' : 'white', cursor: jaMembro ? 'default' : 'pointer', flexShrink: 0, fontFamily: 'var(--font-body)' }}>
+                      {adicionando === v.id ? '…' : jaMembro ? '✓ Membro' : 'Adicionar'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── Card de grupo ── */
+function GrupoCard({ grupo, membroIds, meuVoluntarioId, onEntrar, onSair, onGerenciar }) {
+  const [carregando, setCarregando] = useState(false)
+  const sou = membroIds.has(grupo.id)
+  const souCriador = grupo.criado_por === meuVoluntarioId
+  const toggle = async () => {
+    setCarregando(true)
+    try { sou && !souCriador ? await onSair(grupo.id) : await onEntrar(grupo.id) } catch {}
+    finally { setCarregando(false) }
+  }
   return (
     <div style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
         <div>
-          <p style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--ink)' }}>{opp?.titulo ?? 'Oportunidade'}</p>
-          <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>{opp?.lar_nome}</p>
+          <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--ink)' }}>{grupo.nome}</p>
+          <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', marginTop: 2 }}>{souCriador ? '👑 Você criou este grupo' : `Criado por ${grupo.volunteer_profiles?.nome ?? 'Voluntário'}`}</p>
         </div>
-        <span style={{ fontSize: '0.72rem', fontWeight: 500, padding: '3px 10px', borderRadius: 100, background: s.bg, color: s.color, flexShrink: 0, whiteSpace: 'nowrap' }}>{s.label}</span>
+        <span style={{ fontSize: '0.72rem', fontWeight: 500, padding: '3px 10px', borderRadius: 100, background: 'var(--teal-light)', color: 'var(--teal)', flexShrink: 0 }}>
+          {grupo.total_membros ?? 0} membro{grupo.total_membros !== 1 ? 's' : ''}
+        </span>
       </div>
-      {opp?.cidade && <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>📍 {opp.cidade}{opp.presencial ? ' · Presencial' : ' · Remoto'}</p>}
-      <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>Candidatura em {new Date(candidatura.criado_em).toLocaleDateString('pt-BR')}</p>
-      {podeAvaliar && (
-        <button
-          onClick={() => onAvaliar(candidatura)}
-          style={{ padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, border: '1.5px solid var(--coral)', background: 'transparent', color: 'var(--coral)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}
-        >
-          ★ Avaliar participação
-        </button>
-      )}
+      {grupo.descricao && <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', lineHeight: 1.5 }}>{grupo.descricao}</p>}
+      <div style={{ display: 'flex', gap: 6 }}>
+        {souCriador
+          ? <button onClick={() => onGerenciar(grupo)} style={{ flex: 1, padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, border: 'none', background: 'var(--teal)', color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Gerenciar grupo</button>
+          : <button onClick={toggle} disabled={carregando} style={{ flex: 1, padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, border: sou ? '1.5px solid var(--border)' : 'none', background: sou ? 'transparent' : 'var(--coral)', color: sou ? 'var(--ink-muted)' : 'white', cursor: carregando ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)', opacity: carregando ? 0.7 : 1 }}>
+              {carregando ? '…' : sou ? 'Sair do grupo' : 'Entrar no grupo'}
+            </button>
+        }
+      </div>
     </div>
   )
 }
@@ -253,11 +487,16 @@ export default function DashboardVoluntario() {
   const { user, logout, loading } = useAuth()
   const router = useRouter()
 
-  const [aba, setAba] = useState('oportunidades')
+  const [aba, setAba] = useState('grupos')
   const [perfilForm, setPerfilForm] = useState({})
   const [convites, setConvites] = useState([])
   const [oportunidades, setOportunidades] = useState([])
-  const [candidaturas, setCandidaturas] = useState([])
+  const [grupos, setGrupos] = useState([])
+  const [meusGrupos, setMeusGrupos] = useState([])
+  const [convitesGrupo, setConvitesGrupo] = useState([])
+  const [modalCriarGrupo, setModalCriarGrupo] = useState(false)
+  const [modalGerenciarGrupo, setModalGerenciarGrupo] = useState(null)
+  const [modalConvidarParaGrupo, setModalConvidarParaGrupo] = useState(null)
   const [salvando, setSalvando] = useState(false)
   const [carregandoOpps, setCarregandoOpps] = useState(false)
   const [filtroPresencial, setFiltroPresencial] = useState(null)
@@ -279,8 +518,16 @@ export default function DashboardVoluntario() {
     try { const res = await api.get('/convites/recebidos'); setConvites(res.data ?? []) } catch {}
   }, [])
 
-  const carregarCandidaturas = useCallback(async () => {
-    try { const res = await api.get('/voluntarios/me/candidaturas'); setCandidaturas(res.data ?? []) } catch {}
+  const carregarGrupos = useCallback(async () => {
+    try {
+      const [todos, meus] = await Promise.all([api.get('/grupos'), api.get('/grupos/meus')])
+      setGrupos(todos.data ?? [])
+      setMeusGrupos(meus.data ?? [])
+    } catch {}
+  }, [])
+
+  const carregarConvitesGrupo = useCallback(async () => {
+    try { const res = await api.get('/grupos/convites/recebidos'); setConvitesGrupo(res ?? []) } catch {}
   }, [])
 
   const carregarOportunidades = useCallback(async () => {
@@ -295,8 +542,8 @@ export default function DashboardVoluntario() {
   }, [filtroPresencial])
 
   useEffect(() => {
-    if (user) { carregarPerfil(); carregarConvites(); carregarCandidaturas() }
-  }, [user, carregarPerfil, carregarConvites, carregarCandidaturas])
+    if (user) { carregarPerfil(); carregarConvites(); carregarConvitesGrupo(); carregarGrupos() }
+  }, [user, carregarPerfil, carregarConvites, carregarGrupos])
 
   useEffect(() => {
     if (user) carregarOportunidades()
@@ -314,9 +561,28 @@ export default function DashboardVoluntario() {
     catch (err) { showToast(err.message ?? 'Erro.', 'error') }
   }
 
-  const candidatar = async (oppId) => {
-    try { await api.post(`/oportunidades/${oppId}/candidatar`, {}); await carregarCandidaturas(); showToast('Candidatura enviada!') }
-    catch (err) { showToast(err.message ?? 'Erro ao candidatar.', 'error') }
+  const responderConviteGrupo = async (id, resposta) => {
+    try {
+      await api.patch(`/grupos/convites/${id}/responder`, { resposta })
+      carregarConvitesGrupo()
+      carregarGrupos()
+      showToast(resposta === 'aceito' ? 'Você entrou no grupo!' : 'Convite recusado.')
+    } catch (err) { showToast(err.message ?? 'Erro.', 'error') }
+  }
+
+  const criarGrupo = async (form) => {
+    try { await api.post('/grupos', form); await carregarGrupos(); showToast('Grupo criado!') }
+    catch (err) { showToast(err.message ?? 'Erro ao criar grupo.', 'error'); throw err }
+  }
+
+  const entrarGrupo = async (grupoId) => {
+    try { await api.post(`/grupos/${grupoId}/entrar`, {}); await carregarGrupos(); showToast('Você entrou no grupo!') }
+    catch (err) { showToast(err.message ?? 'Erro.', 'error') }
+  }
+
+  const sairGrupo = async (grupoId) => {
+    try { await api.delete(`/grupos/${grupoId}/sair`); await carregarGrupos(); showToast('Você saiu do grupo.') }
+    catch (err) { showToast(err.message ?? 'Erro.', 'error') }
   }
 
   const avaliar = async ({ destinatario_id, oportunidade_id, nota, comentario }) => {
@@ -329,10 +595,10 @@ export default function DashboardVoluntario() {
     setPerfilForm({ ...perfilForm, [campo]: atual.includes(valor) ? atual.filter(x => x !== valor) : [...atual, valor] })
   }
 
-  // Mapa de candidaturas por oportunidade para lookup rápido
-  const candPorOpp = Object.fromEntries(candidaturas.map(c => [c.oportunidade_id, c]))
   const pendentes = convites.filter(c => c.status === 'pendente').length
-  const candPendentes = candidaturas.filter(c => c.status === 'pendente').length
+  const pendentesGrupo = convitesGrupo.filter(c => c.status === 'pendente').length
+  const totalPendentes = pendentes + pendentesGrupo
+  const meusGruposIds = new Set(meusGrupos.map(g => g.id))
 
   if (loading || !user) return null
 
@@ -348,6 +614,9 @@ export default function DashboardVoluntario() {
           onAvaliar={avaliar}
         />
       )}
+      {modalCriarGrupo && <ModalCriarGrupo onClose={() => setModalCriarGrupo(false)} onCreate={criarGrupo} />}
+      {modalGerenciarGrupo && <ModalGerenciarGrupo grupo={modalGerenciarGrupo} onClose={() => setModalGerenciarGrupo(null)} onAtualizar={carregarGrupos} />}
+      {modalConvidarParaGrupo && <ModalConvidarParaGrupo grupo={modalConvidarParaGrupo} meuVoluntarioId={perfilForm?.id} onClose={() => setModalConvidarParaGrupo(null)} />}
 
       {/* Header */}
       <header style={{ position: 'sticky', top: 0, zIndex: 40, background: 'var(--white)', borderBottom: '1px solid var(--border)' }}>
@@ -373,15 +642,15 @@ export default function DashboardVoluntario() {
         {/* Abas */}
         <div style={{ display: 'flex', gap: 4, marginBottom: '1.5rem', borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
           {[
-            { id: 'oportunidades', label: 'Oportunidades' },
-            { id: 'candidaturas', label: 'Minhas Candidaturas', badge: candPendentes },
-            { id: 'convites', label: 'Convites', badge: pendentes },
+            { id: 'grupos', label: 'Grupos' },
+            { id: 'meus-grupos', label: 'Meus grupos' },
+            { id: 'convites', label: 'Convites', badge: totalPendentes },
             { id: 'perfil', label: 'Meu Perfil' },
           ].map(a => (
             <button
               key={a.id}
               onClick={() => setAba(a.id)}
-              style={{ padding: '10px 18px', fontSize: '0.875rem', fontWeight: 500, borderBottom: `2px solid ${aba === a.id ? 'var(--coral)' : 'transparent'}`, color: aba === a.id ? 'var(--coral)' : 'var(--ink-muted)', background: 'none', border: 'none', borderBottom: `2px solid ${aba === a.id ? 'var(--coral)' : 'transparent'}`, cursor: 'pointer', fontFamily: 'var(--font-body)', marginBottom: -1, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
+              style={{ padding: '10px 18px', fontSize: '0.875rem', fontWeight: 500, borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: `2px solid ${aba === a.id ? 'var(--coral)' : 'transparent'}`, color: aba === a.id ? 'var(--coral)' : 'var(--ink-muted)', background: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', marginBottom: -1, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 6 }}
             >
               {a.label}
               {a.badge > 0 && <span style={{ background: 'var(--coral)', color: 'white', fontSize: '0.65rem', fontWeight: 700, padding: '1px 7px', borderRadius: 100 }}>{a.badge}</span>}
@@ -389,71 +658,75 @@ export default function DashboardVoluntario() {
           ))}
         </div>
 
-        {/* ── ABA: OPORTUNIDADES ── */}
-        {aba === 'oportunidades' && (
+        {/* ── ABA: GRUPOS ── */}
+        {aba === 'grupos' && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: '1.25rem', flexWrap: 'wrap' }}>
               <div>
-                <h2 style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)' }}>Oportunidades disponíveis</h2>
-                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginTop: 2 }}>
-                  {carregandoOpps ? 'Carregando…' : `${oportunidades.length} oportunidade${oportunidades.length !== 1 ? 's' : ''}`}
-                </p>
+                <h2 style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)' }}>Grupos de voluntários</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginTop: 2 }}>{grupos.length} grupo{grupos.length !== 1 ? 's' : ''} · {meusGrupos.length} que participo</p>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                {[{ label: 'Todas', value: null }, { label: 'Presencial', value: true }, { label: 'Remoto', value: false }].map(({ label, value }) => (
-                  <button key={label} onClick={() => setFiltroPresencial(value)} style={{ fontSize: '0.8rem', padding: '7px 14px', borderRadius: 100, fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font-body)', background: filtroPresencial === value ? 'var(--ink)' : 'var(--white)', color: filtroPresencial === value ? 'white' : 'var(--ink-muted)', border: `1px solid ${filtroPresencial === value ? 'var(--ink)' : 'var(--border)'}` }}>
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <button onClick={() => setModalCriarGrupo(true)} style={{ padding: '10px 20px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, background: 'var(--coral)', color: 'white', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>+ Criar grupo</button>
             </div>
-
-            {carregandoOpps ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '5rem' }}>
-                <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid var(--coral)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-              </div>
-            ) : oportunidades.length === 0 ? (
+            {grupos.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '5rem 1rem', color: 'var(--ink-muted)' }}>
-                <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🔎</div>
-                <p style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)', marginBottom: 6 }}>Nenhuma oportunidade no momento</p>
-                <p style={{ fontSize: '0.875rem', maxWidth: 320, margin: '0 auto' }}>Complete seu perfil e fique visível para receber convites dos lares parceiros.</p>
-                <button onClick={() => setAba('perfil')} style={{ marginTop: '1.25rem', fontSize: '0.875rem', fontWeight: 500, color: 'var(--coral)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Completar perfil →</button>
+                <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>👥</div>
+                <p style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)', marginBottom: 6 }}>Nenhum grupo ainda</p>
+                <p style={{ fontSize: '0.875rem', maxWidth: 320, margin: '0 auto 1.25rem' }}>Crie o primeiro grupo para reunir voluntários com interesses em comum.</p>
+                <button onClick={() => setModalCriarGrupo(true)} style={{ padding: '12px 28px', borderRadius: 12, fontSize: '0.9rem', fontWeight: 600, background: 'var(--coral)', color: 'white', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Criar grupo</button>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
-                {oportunidades.map(opp => (
-                  <OportunidadeCard key={opp.id} opp={opp} candidatura={candPorOpp[opp.id]} onCandidatar={candidatar} />
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                {grupos.map(g => <GrupoCard key={g.id} grupo={g} membroIds={meusGruposIds} meuVoluntarioId={perfilForm?.id} onEntrar={entrarGrupo} onSair={sairGrupo} onGerenciar={setModalGerenciarGrupo} />)}
               </div>
             )}
           </div>
         )}
 
-        {/* ── ABA: CANDIDATURAS ── */}
-        {aba === 'candidaturas' && (
-          <div style={{ maxWidth: 640 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.25rem' }}>
-              <h2 style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)' }}>Minhas Candidaturas</h2>
-              <span style={{ fontSize: '0.8rem', color: 'var(--ink-muted)' }}>{candidaturas.length} no total</span>
+        {/* ── ABA: MEUS GRUPOS ── */}
+        {aba === 'meus-grupos' && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+              <div>
+                <h2 style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)' }}>Meus grupos</h2>
+                <p style={{ fontSize: '0.8rem', color: 'var(--ink-muted)', marginTop: 2 }}>{meusGrupos.length} grupo{meusGrupos.length !== 1 ? 's' : ''} que participo</p>
+              </div>
+              <button onClick={() => setModalCriarGrupo(true)} style={{ padding: '10px 20px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, background: 'var(--coral)', color: 'white', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)', flexShrink: 0 }}>+ Criar grupo</button>
             </div>
-
-            {candidaturas.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--ink-muted)' }}>
-                <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
-                <p style={{ fontWeight: 500, marginBottom: 6 }}>Nenhuma candidatura ainda</p>
-                <p style={{ fontSize: '0.85rem' }}>Navegue pelas oportunidades e candidate-se às que interessar!</p>
-                <button onClick={() => setAba('oportunidades')} style={{ marginTop: '1rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--coral)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Ver oportunidades →</button>
+            {meusGrupos.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '5rem 1rem', color: 'var(--ink-muted)' }}>
+                <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>👥</div>
+                <p style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)', marginBottom: 6 }}>Você não participa de nenhum grupo</p>
+                <p style={{ fontSize: '0.875rem', maxWidth: 320, margin: '0 auto 1.25rem' }}>Entre em um grupo existente ou crie o seu próprio.</p>
+                <button onClick={() => setAba('grupos')} style={{ padding: '12px 28px', borderRadius: 12, fontSize: '0.9rem', fontWeight: 600, background: 'var(--coral)', color: 'white', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Explorar grupos</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {candidaturas.map(c => (
-                  <CandidaturaCard
-                    key={c.id}
-                    candidatura={c}
-                    user={user}
-                    onAvaliar={cand => setModalAvaliar(cand)}
-                  />
-                ))}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                {meusGrupos.map(g => {
+                  const souCriador = g.criado_por === perfilForm?.id
+                  return (
+                    <div key={g.id} style={{ background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 16, padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                        <div>
+                          <p style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--ink)' }}>{g.nome}</p>
+                          <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)', marginTop: 2 }}>{souCriador ? '👑 Você criou este grupo' : `Criado por ${g.volunteer_profiles?.nome ?? 'Voluntário'}`}</p>
+                        </div>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 500, padding: '3px 10px', borderRadius: 100, background: 'var(--teal-light)', color: 'var(--teal)', flexShrink: 0 }}>
+                          {g.total_membros ?? 0} membro{g.total_membros !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      {g.descricao && <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', lineHeight: 1.5 }}>{g.descricao}</p>}
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {souCriador && (
+                          <>
+                            <button onClick={() => setModalGerenciarGrupo(g)} style={{ flex: 1, padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 500, border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Gerenciar</button>
+                            <button onClick={() => setModalConvidarParaGrupo(g)} style={{ flex: 2, padding: '9px', borderRadius: 10, fontSize: '0.85rem', fontWeight: 600, border: 'none', background: 'var(--coral)', color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Convidar voluntários</button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -464,9 +737,9 @@ export default function DashboardVoluntario() {
           <div style={{ maxWidth: 600 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: '1.25rem' }}>
               <h2 style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--ink)' }}>Convites recebidos</h2>
-              {pendentes > 0 && <span style={{ background: 'var(--coral)', color: 'white', fontSize: '0.72rem', fontWeight: 700, padding: '2px 9px', borderRadius: 100 }}>{pendentes} novo{pendentes > 1 ? 's' : ''}</span>}
+              {totalPendentes > 0 && <span style={{ background: 'var(--coral)', color: 'white', fontSize: '0.72rem', fontWeight: 700, padding: '2px 9px', borderRadius: 100 }}>{totalPendentes} novo{totalPendentes > 1 ? 's' : ''}</span>}
             </div>
-            {convites.length === 0 ? (
+            {convites.length === 0 && convitesGrupo.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '4rem 1rem', color: 'var(--ink-muted)' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📭</div>
                 <p style={{ fontWeight: 500, marginBottom: 6 }}>Nenhum convite ainda</p>
@@ -474,9 +747,24 @@ export default function DashboardVoluntario() {
                 <button onClick={() => setAba('perfil')} style={{ marginTop: '1rem', fontSize: '0.85rem', fontWeight: 500, color: 'var(--coral)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Completar perfil →</button>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {convites.map(c => <ConviteCard key={c.id} convite={c} onResponder={responderConvite} />)}
-              </div>
+              <>
+                {convites.length > 0 && (
+                  <div style={{ marginBottom: '1.5rem' }}>
+                    <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>De lares</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {convites.map(c => <ConviteCard key={c.id} convite={c} onResponder={responderConvite} />)}
+                    </div>
+                  </div>
+                )}
+                {convitesGrupo.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Para grupos</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {convitesGrupo.map(c => <GroupConviteCard key={c.id} convite={c} onResponder={responderConviteGrupo} />)}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}

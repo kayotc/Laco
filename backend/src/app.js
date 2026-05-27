@@ -13,6 +13,7 @@ import {
   invitationController,
   opportunityController,
   evaluationController,
+  groupController,
 } from './infra/container.js'
 
 // Routes factories
@@ -22,6 +23,7 @@ import { makeInstitutionRoutes } from './presentation/routes/institutions.routes
 import { makeInvitationRoutes } from './presentation/routes/invitations.routes.js'
 import { makeOpportunityRoutes } from './presentation/routes/opportunities.routes.js'
 import { makeEvaluationRoutes } from './presentation/routes/evaluations.routes.js'
+import { makeGroupRoutes } from './presentation/routes/groups.routes.js'
 
 const app = express()
 
@@ -40,6 +42,7 @@ app.use('/api/lares',        makeInstitutionRoutes(institutionController))
 app.use('/api/convites',     makeInvitationRoutes(invitationController))
 app.use('/api/oportunidades', makeOpportunityRoutes(opportunityController))
 app.use('/api/avaliacoes',   makeEvaluationRoutes(evaluationController))
+app.use('/api/grupos',       makeGroupRoutes(groupController))
 
 // Health check
 app.get('/api/health', (_req, res) => res.json({ ok: true, timestamp: new Date().toISOString() }))
