@@ -49,7 +49,7 @@ export default function CadastroPage() {
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [role, setRole] = useState('')
-  const [form, setForm] = useState({ nome: '', email: '', senha: '', cnpj: '' })
+  const [form, setForm] = useState({ nome: '', email: '', senha: '' })
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
 
@@ -61,23 +61,12 @@ export default function CadastroPage() {
 
   const handleRoleSelect = (r) => { setRole(r); setStep(2) }
 
-  const formatCnpj = (v) => {
-    const d = v.replace(/\D/g, '').slice(0, 14)
-    if (d.length <= 2) return d
-    if (d.length <= 5) return `${d.slice(0,2)}.${d.slice(2)}`
-    if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`
-    if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`
-    return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`
-  }
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErro('')
     setEnviando(true)
     try {
-      const payload = { ...form, role }
-      if (role === 'lar') payload.cnpj = form.cnpj.replace(/\D/g, '')
-      await register(payload)
+      await register({ ...form, role })
       router.push('/onboarding')
     } catch (err) {
       setErro(err.message ?? 'Erro ao criar conta. Tente novamente.')
@@ -208,20 +197,6 @@ export default function CadastroPage() {
               )}
 
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                {role === 'lar' && (
-                  <div>
-                    <label className="auth-label">CNPJ da instituição *</label>
-                    <input
-                      className="auth-input"
-                      type="text"
-                      inputMode="numeric"
-                      required
-                      value={form.cnpj}
-                      onChange={e => setForm({ ...form, cnpj: formatCnpj(e.target.value) })}
-                      placeholder="00.000.000/0000-00"
-                    />
-                  </div>
-                )}
                 <div>
                   <label className="auth-label">
                     {role === 'lar' ? 'Nome do Lar / Instituição' : 'Seu nome completo'}

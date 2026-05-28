@@ -185,36 +185,145 @@ function OportunidadeCard({ opp }) {
   )
 }
 
-/* ── Modal criar grupo ── */
-function ModalCriarGrupo({ onClose, onCreate }) {
+/* ── Modal criar grupo (2 passos) ── */
+function ModalCriarGrupo({ onClose, onCreate, meuVoluntarioId }) {
+  const [step, setStep] = useState(1)
   const [form, setForm] = useState({ nome: '', descricao: '' })
   const [criando, setCriando] = useState(false)
+  const [grupoId, setGrupoId] = useState(null)
+  const [busca, setBusca] = useState('')
+  const [voluntarios, setVoluntarios] = useState([])
+  const [buscando, setBuscando] = useState(false)
+  const [convidados, setConvidados] = useState(new Set())
+  const [enviando, setEnviando] = useState(null)
+
+  // carrega lista inicial de voluntários ao entrar no passo 2
+  useEffect(() => {
+    if (step !== 2) return
+    setBuscando(true)
+    api.get('/voluntarios?limit=30').then(r => setVoluntarios(r.data?.data ?? [])).catch(() => {}).finally(() => setBuscando(false))
+  }, [step])
+
   const handleCriar = async () => {
     if (!form.nome.trim()) return
     setCriando(true)
-    try { await onCreate(form); onClose() }
-    finally { setCriando(false) }
+    try {
+      const grupo = await onCreate(form)
+      setGrupoId(grupo?.id ?? null)
+      setStep(2)
+    } catch {} finally { setCriando(false) }
   }
+
+  const buscarVols = async (q) => {
+    setBuscando(true)
+    try { const r = await api.get(`/voluntarios?termo=${encodeURIComponent(q)}&limit=20`); setVoluntarios(r.data?.data ?? []) }
+    catch {} finally { setBuscando(false) }
+  }
+
+  const handleBusca = (v) => {
+    setBusca(v)
+    if (v.trim()) buscarVols(v)
+    else { setBuscando(true); api.get('/voluntarios?limit=30').then(r => setVoluntarios(r.data?.data ?? [])).catch(() => {}).finally(() => setBuscando(false)) }
+  }
+
+  const convidar = async (vol) => {
+    if (!grupoId) return
+    setEnviando(vol.id)
+    try {
+      await api.post(`/grupos/${grupoId}/convidar`, { convidado_id: vol.id })
+      setConvidados(prev => new Set([...prev, vol.id]))
+    } catch (err) {
+      if (err?.status === 409) setConvidados(prev => new Set([...prev, vol.id]))
+    } finally { setEnviando(null) }
+  }
+
+  const labelStyle = { display: 'block', fontSize: '0.78rem', fontWeight: 600, color: 'var(--ink-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal-box">
-        <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)', marginBottom: '1.25rem' }}>Criar novo grupo</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div className="modal-box" style={{ maxWidth: 520, maxHeight: '90vh', overflowY: 'auto' }}>
+
+        {/* cabeçalho com steps */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
           <div>
-            <label className="auth-label">Nome do grupo *</label>
-            <input type="text" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex.: Voluntários de Educação PE" className="auth-input" style={{ fontSize: '0.875rem' }} />
+            <h3 style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--ink)' }}>
+              {step === 1 ? 'Criar novo grupo' : 'Convidar voluntários'}
+            </h3>
+            <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: 2 }}>
+              Passo {step} de 2
+            </p>
           </div>
-          <div>
-            <label className="auth-label">Descrição (opcional)</label>
-            <textarea rows={3} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="Do que se trata este grupo?" className="auth-input" style={{ fontSize: '0.875rem', resize: 'none', lineHeight: 1.6 }} />
-          </div>
+          {step === 2 && <span style={{ fontSize: '0.72rem', fontWeight: 600, padding: '3px 10px', borderRadius: 100, background: 'var(--teal-light)', color: 'var(--teal)' }}>✓ Grupo criado</span>}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: '1.25rem' }}>
-          <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
-          <button onClick={handleCriar} disabled={criando || !form.nome.trim()} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: form.nome.trim() ? 'var(--coral)' : '#e5e7eb', color: form.nome.trim() ? 'white' : '#9ca3af', cursor: (!form.nome.trim() || criando) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
-            {criando ? 'Criando…' : 'Criar grupo'}
-          </button>
-        </div>
+
+        {/* ── PASSO 1: dados do grupo ── */}
+        {step === 1 && (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div>
+                <label style={labelStyle}>Nome do grupo *</label>
+                <input type="text" value={form.nome} onChange={e => setForm({ ...form, nome: e.target.value })} placeholder="Ex.: Voluntários de Educação PE" className="auth-input" style={{ fontSize: '0.875rem' }} autoFocus />
+              </div>
+              <div>
+                <label style={labelStyle}>Descrição (opcional)</label>
+                <textarea rows={3} value={form.descricao} onChange={e => setForm({ ...form, descricao: e.target.value })} placeholder="Do que se trata este grupo?" className="auth-input" style={{ fontSize: '0.875rem', resize: 'none', lineHeight: 1.6 }} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: '1.25rem' }}>
+              <button onClick={onClose} style={{ flex: 1, padding: '11px', borderRadius: 10, fontSize: '0.875rem', border: '1.5px solid var(--border)', background: 'transparent', color: 'var(--ink-muted)', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>Cancelar</button>
+              <button onClick={handleCriar} disabled={criando || !form.nome.trim()} style={{ flex: 2, padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: form.nome.trim() ? 'var(--coral)' : '#e5e7eb', color: form.nome.trim() ? 'white' : '#9ca3af', cursor: (!form.nome.trim() || criando) ? 'not-allowed' : 'pointer', fontFamily: 'var(--font-body)' }}>
+                {criando ? 'Criando…' : 'Criar e convidar →'}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* ── PASSO 2: convidar voluntários ── */}
+        {step === 2 && (
+          <>
+            <input
+              className="auth-input"
+              style={{ fontSize: '0.875rem', marginBottom: 10 }}
+              placeholder="Buscar voluntário por nome…"
+              value={busca}
+              onChange={e => handleBusca(e.target.value)}
+              autoFocus
+            />
+
+            {buscando && <p style={{ fontSize: '0.78rem', color: 'var(--ink-muted)', marginBottom: 8 }}>Buscando…</p>}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto', marginBottom: '1rem' }}>
+              {voluntarios.filter(v => v.id !== meuVoluntarioId).map(v => {
+                const jaConvidado = convidados.has(v.id)
+                return (
+                  <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 10, background: 'var(--warm)', border: '1px solid var(--border)' }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: jaConvidado ? 'var(--teal)' : 'var(--coral)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'white', fontSize: '0.8rem', flexShrink: 0 }}>
+                      {v.nome?.[0]?.toUpperCase() ?? '?'}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.nome}</p>
+                      {v.cidade && <p style={{ fontSize: '0.72rem', color: 'var(--ink-muted)' }}>{v.cidade}{v.estado ? `, ${v.estado}` : ''}</p>}
+                    </div>
+                    <button
+                      onClick={() => !jaConvidado && convidar(v)}
+                      disabled={jaConvidado || enviando === v.id}
+                      style={{ fontSize: '0.75rem', padding: '5px 12px', borderRadius: 8, border: 'none', background: jaConvidado ? '#dcfce7' : 'var(--coral)', color: jaConvidado ? '#15803d' : 'white', cursor: jaConvidado ? 'default' : 'pointer', flexShrink: 0, fontFamily: 'var(--font-body)', fontWeight: 600 }}
+                    >
+                      {enviando === v.id ? '…' : jaConvidado ? '✓ Convidado' : 'Convidar'}
+                    </button>
+                  </div>
+                )
+              })}
+              {!buscando && voluntarios.filter(v => v.id !== meuVoluntarioId).length === 0 && (
+                <p style={{ fontSize: '0.82rem', color: 'var(--ink-muted)', textAlign: 'center', padding: '1.5rem 0' }}>Nenhum voluntário encontrado.</p>
+              )}
+            </div>
+
+            <button onClick={onClose} style={{ width: '100%', padding: '11px', borderRadius: 10, fontSize: '0.875rem', fontWeight: 600, border: 'none', background: 'var(--teal)', color: 'white', cursor: 'pointer', fontFamily: 'var(--font-body)' }}>
+              Concluir {convidados.size > 0 ? `(${convidados.size} convidado${convidados.size > 1 ? 's' : ''})` : ''}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -571,8 +680,12 @@ export default function DashboardVoluntario() {
   }
 
   const criarGrupo = async (form) => {
-    try { await api.post('/grupos', form); await carregarGrupos(); showToast('Grupo criado!') }
-    catch (err) { showToast(err.message ?? 'Erro ao criar grupo.', 'error'); throw err }
+    try {
+      const grupo = await api.post('/grupos', form)
+      showToast('Grupo criado!')
+      await carregarGrupos()
+      return grupo
+    } catch (err) { showToast(err.message ?? 'Erro ao criar grupo.', 'error'); throw err }
   }
 
   const entrarGrupo = async (grupoId) => {
@@ -614,7 +727,7 @@ export default function DashboardVoluntario() {
           onAvaliar={avaliar}
         />
       )}
-      {modalCriarGrupo && <ModalCriarGrupo onClose={() => setModalCriarGrupo(false)} onCreate={criarGrupo} />}
+      {modalCriarGrupo && <ModalCriarGrupo onClose={() => setModalCriarGrupo(false)} onCreate={criarGrupo} meuVoluntarioId={perfilForm?.id} />}
       {modalGerenciarGrupo && <ModalGerenciarGrupo grupo={modalGerenciarGrupo} onClose={() => setModalGerenciarGrupo(null)} onAtualizar={carregarGrupos} />}
       {modalConvidarParaGrupo && <ModalConvidarParaGrupo grupo={modalConvidarParaGrupo} meuVoluntarioId={perfilForm?.id} onClose={() => setModalConvidarParaGrupo(null)} />}
 
